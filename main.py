@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from gui_app import OptionPricerGUI
 
+
 def main():
     root = tk.Tk()
     # 可以设置一个全局的 ttk 主题，让界面更好看一点

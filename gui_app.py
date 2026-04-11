@@ -1,6 +1,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from analytic_pricer import calc_geometric_basket_closed_form
+from mc_pricer import calc_arithmetic_basket_mc
+
 class OptionPricerGUI:
     def __init__(self, root):
         self.root = root
@@ -82,29 +85,64 @@ class OptionPricerGUI:
                 self.entries[param] = entry
 
     def calculate(self):
-        """收集数据并准备传给后端算法"""
+        """收集数据并调用对应的后端算法"""
         selected_option = self.option_type_var.get()
         input_data = {}
         
         try:
+            # 1. 数据收集与基础类型转换
             for param, entry in self.entries.items():
                 val = entry.get()
                 if not val:
                     raise ValueError(f"Parameter '{param}' cannot be empty.")
-                # 区分字符串参数和数字参数
+                
                 if param in ["Option Type", "CV Method"]:
                     input_data[param] = val
                 else:
                     input_data[param] = float(val)
             
-            # --- 这里是调用后端算法的接口 ---
-            # result = some_backend_router_function(selected_option, input_data)
+            # 2. 准备输出文本
+            result_text_output = f"--- {selected_option} Results ---\n\n"
             
-            # 模拟后端返回的结果 (暂时用于测试 GUI)
-            self.display_result(f"Selected Option: {selected_option}\nCollected Data:\n{input_data}\n\n[Backend Not Connected Yet]")
+            # 3. 后端路由：根据选择的期权类型调用不同的算法
+            if selected_option == "Geometric Basket":
+                price = calc_geometric_basket_closed_form(
+                    S1=input_data["S1(0)"], S2=input_data["S2(0)"],
+                    sigma1=input_data["sigma1"], sigma2=input_data["sigma2"],
+                    r=input_data["r"], T=input_data["T"], K=input_data["K"],
+                    rho=input_data["rho"], option_type=input_data["Option Type"]
+                )
+                result_text_output += f"Price: {price:.6f}\n"
+
+            elif selected_option == "Arithmetic Basket":
+                # 蒙特卡洛路径数必须是整数
+                m_paths = int(input_data["MC Paths"]) 
+                use_cv = True if input_data["CV Method"] == "Geometric Option" else False
+                
+                res = calc_arithmetic_basket_mc(
+                    S1=input_data["S1(0)"], S2=input_data["S2(0)"],
+                    sigma1=input_data["sigma1"], sigma2=input_data["sigma2"],
+                    r=input_data["r"], T=input_data["T"], K=input_data["K"],
+                    rho=input_data["rho"], option_type=input_data["Option Type"],
+                    m_paths=m_paths, use_cv=use_cv
+                )
+                
+                result_text_output += f"Estimated Price: {res['Price']:.6f}\n"
+                result_text_output += f"95% Confidence Interval: [{res['CI_Lower']:.6f}, {res['CI_Upper']:.6f}]\n"
+                result_text_output += f"Standard Error: {res['StdError']:.6f}\n"
+
+            else:
+                result_text_output += "[Backend for this option is not connected yet.]\n\n"
+                result_text_output += f"Collected Data: {input_data}"
+
+            # 4. 在界面上展示结果
+            self.display_result(result_text_output)
             
-        except ValueError as e:
-            messagebox.showerror("Input Error", str(e))
+        except ValueError as ve:
+            messagebox.showerror("Input Error", f"Invalid input: {str(ve)}")
+        except Exception as e:
+            # 捕捉后端计算中可能出现的数学错误（比如除以零等）
+            messagebox.showerror("Calculation Error", f"An error occurred during calculation:\n{str(e)}")
 
     def display_result(self, text):
         """在底部文本框展示结果"""
