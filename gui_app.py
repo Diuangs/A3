@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-
+from advanced_pricer import calc_kiko_put_qmc
 from analytic_pricer import calc_geometric_basket_closed_form
 from mc_pricer import calc_arithmetic_basket_mc
 
@@ -130,6 +130,22 @@ class OptionPricerGUI:
                 result_text_output += f"Estimated Price: {res['Price']:.6f}\n"
                 result_text_output += f"95% Confidence Interval: [{res['CI_Lower']:.6f}, {res['CI_Upper']:.6f}]\n"
                 result_text_output += f"Standard Error: {res['StdError']:.6f}\n"
+
+            elif selected_option == "KIKO Put Option":
+                res = calc_kiko_put_qmc(
+                    S0=input_data["S(0)"],  # 修改了这里：由 "S0" 改为 "S(0)"
+                    sigma=input_data["sigma"], 
+                    r=input_data["r"], 
+                    T=input_data["T"],
+                    K=input_data["K"], 
+                    L=input_data["L (Lower)"], 
+                    U=input_data["U (Upper)"], 
+                    n_obs=input_data["n (Obs)"],
+                    R=input_data["R (Rebate)"]
+                    # 删除了 m_paths=input_data["MC Paths"]，因为后端函数默认自带 100000
+                )
+                result_text_output += f"QMC Price: {res['Price']:.6f}\n"
+                result_text_output += f"Delta: {res['Delta']:.6f}\n"
 
             else:
                 result_text_output += "[Backend for this option is not connected yet.]\n\n"
