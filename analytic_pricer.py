@@ -1,4 +1,5 @@
 import math
+import numpy as np
 from scipy.stats import norm
 
 def calc_geometric_basket_closed_form(S1, S2, sigma1, sigma2, r, T, K, rho, option_type):
@@ -41,19 +42,90 @@ def calc_geometric_basket_closed_form(S1, S2, sigma1, sigma2, r, T, K, rho, opti
     return price
 
 
-def geometric_asian_price(S, K, T, r, sigma, option_type='call'):
+def calc_european_bs(S0, sigma, r, q, T, K, option_type):
     """
-    Price geometric average Asian option using Thompson (2002) formula.
+    Black-Scholes formula for European options with continuous dividend yield.
 
     Args:
-        S: spot price
-        K: strike price
-        T: time to maturity (years)
-        r: risk-free rate
+        S0:  spot price
         sigma: volatility
+        r:    risk-free rate
+        q:    continuous dividend yield
+        T:    time to maturity (years)
+        K:    strike price
         option_type: 'call' or 'put'
 
     Returns:
         price: float
     """
-    pass  # TODO
+    d1 = (np.log(S0 / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+    disc = np.exp(-r * T)
+    if option_type == 'call':
+        price = disc * (S0 * np.exp((r - q) * T) * norm.cdf(d1) - K * norm.cdf(d2))
+    else:
+        price = disc * (K * norm.cdf(-d2) - S0 * np.exp((r - q) * T) * norm.cdf(-d1))
+    return float(price)
+
+
+def calc_implied_vol(S0, r, q, T, K, premium, option_type, tol=1e-6, max_iter=100):
+    """
+    Newton-Raphson iteration to find implied volatility from Black-Scholes.
+
+    Args:
+        S0, r, q, T, K, option_type: same as calc_european_bs
+        premium: observed market price of the option
+        tol:    convergence tolerance
+        max_iter: maximum iterations
+
+    Returns:
+        sigma: implied volatility (float)
+    """
+    sigma = 0.30  # initial guess
+    for _ in range(max_iter):
+        d1 = (np.log(S0 / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+        d2 = d1 - sigma * np.sqrt(T)
+        disc = np.exp(-r * T)
+        if option_type == 'call':
+            price = disc * (S0 * np.exp((r - q) * T) * norm.cdf(d1) - K * norm.cdf(d2))
+        else:
+            price = disc * (K * norm.cdf(-d2) - S0 * np.exp((r - q) * T) * norm.cdf(-d1))
+        vega = disc * S0 * np.exp((r - q) * T) * norm.pdf(d1) * np.sqrt(T)
+        if vega < 1e-10:
+            break
+        diff = premium - price
+        if abs(diff) < tol:
+            return float(sigma)
+        sigma = sigma + diff / vega
+    return float(sigma)
+
+
+def calc_geometric_asian_closed_form(S0, sigma, r, T, K, n_obs, option_type):
+    """
+    Thompson (2002) closed-form for geometric average Asian option.
+
+    Args:
+        S0:         spot price
+        sigma:      volatility
+        r:          risk-free rate
+        T:          time to maturity (years)
+        K:          strike price
+        n_obs:      number of observation periods (e.g., 52 for weekly)
+        option_type: 'call' or 'put'
+
+    Returns:
+        price: float
+    """
+    vol_G = sigma / np.sqrt(3)
+    mu_G = r - sigma**2 / 6
+
+    d1 = (np.log(S0 / K) + (mu_G + 0.5 * vol_G**2) * T) / (vol_G * np.sqrt(T))
+    d2 = d1 - vol_G * np.sqrt(T)
+    discount = np.exp(-r * T)
+    forward_adj = S0 * np.exp(mu_G * T)
+
+    if option_type == 'call':
+        price = discount * (forward_adj * norm.cdf(d1) - K * norm.cdf(d2))
+    else:
+        price = discount * (K * norm.cdf(-d2) - forward_adj * norm.cdf(-d1))
+    return float(price)
