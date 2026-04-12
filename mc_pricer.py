@@ -84,7 +84,50 @@ def arithmetic_asian_price(S, K, T, r, sigma, option_type='call',
     Returns:
         (price, lower_ci, upper_ci): tuple of (price, 95% CI lower, 95% CI upper)
     """
-    pass  # TODO
+    from analytic_pricer import geometric_asian_price
+
+    rng = np.random.default_rng(seed)
+    n_steps = max(1, int(T * 252))  # daily steps, min 1
+
+    dt = T / n_steps
+    drift = (r - 0.5 * sigma**2) * dt
+    vol = sigma * np.sqrt(dt)
+
+    # Stock price paths: GBM
+    Z = rng.standard_normal((n_paths, n_steps))
+    log_returns = drift + vol * Z
+    price_paths = S * np.exp(np.cumsum(log_returns, axis=1))
+
+    # Arithmetic average across time steps
+    arith_avg = np.mean(price_paths, axis=1)
+
+    # Geometric average across time steps (for control variate)
+    log_prices = np.log(price_paths)
+    geo_avg = np.exp(np.mean(log_prices, axis=1))
+
+    # Payoffs
+    if option_type == 'call':
+        arith_payoff = np.maximum(arith_avg - K, 0.0)
+        geo_payoff = np.maximum(geo_avg - K, 0.0)
+    else:
+        arith_payoff = np.maximum(K - arith_avg, 0.0)
+        geo_payoff = np.maximum(K - geo_avg, 0.0)
+
+    # Control variate adjustment
+    beta = np.cov(arith_payoff, geo_payoff, ddof=1)[0, 1] / np.var(geo_payoff, ddof=1)
+
+    # Geometric Asian closed-form price as the control
+    geo_price = geometric_asian_price(S, K, T, r, sigma, option_type)
+    geo_expected = np.full(n_paths, geo_price)
+
+    # Adjusted payoff
+    adjusted_payoff = arith_payoff - beta * (geo_payoff - geo_expected)
+
+    # Discount
+    discounted = np.exp(-r * T) * adjusted_payoff
+
+    mean_price, lower, upper = compute_95_ci(discounted)
+    return mean_price, lower, upper
 
 def compute_95_ci(samples):
     """
@@ -96,4 +139,8 @@ def compute_95_ci(samples):
     Returns:
         (mean, lower, upper)
     """
-    pass  # TODO
+    mean = float(np.mean(samples))
+    se = float(np.std(samples, ddof=1) / np.sqrt(len(samples)))
+    lower = mean - 1.96 * se
+    upper = mean + 1.96 * se
+    return mean, lower, upper
