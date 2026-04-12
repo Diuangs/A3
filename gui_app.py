@@ -21,7 +21,7 @@ class OptionPricerGUI:
         self.root = root
         self.root.title("FITE7405 Mini Option Pricer")
         self.root.geometry("600x700")
-        
+
         # 定义不同期权对应的参数列表
         self.param_map = {
             "European Option": ["S(0)", "sigma", "r", "q", "T", "K", "Option Type"],
@@ -31,9 +31,9 @@ class OptionPricerGUI:
             "Arithmetic Asian": ["S(0)", "sigma", "r", "T", "K", "n (Obs)", "MC Paths", "CV Method", "Option Type"],
             "Geometric Basket": ["S1(0)", "S2(0)", "sigma1", "sigma2", "r", "T", "K", "rho", "Option Type"],
             "Arithmetic Basket": ["S1(0)", "S2(0)", "sigma1", "sigma2", "r", "T", "K", "rho", "MC Paths", "CV Method", "Option Type"],
-            "KIKO Put Option": ["S(0)", "sigma", "r", "T", "K", "L (Lower)", "U (Upper)", "n (Obs)", "R (Rebate)"] # KIKO 固定为 Put
+            "KIKO Put Option": ["S(0)", "sigma", "r", "T", "K", "L (Lower)", "U (Upper)", "n (Obs)", "R (Rebate)"]  # KIKO 固定为 Put
         }
-        
+
         self.entries = {}  # 存储输入框的字典
         self.setup_ui()
 
@@ -41,7 +41,7 @@ class OptionPricerGUI:
         # 1. 顶部：期权类型选择
         top_frame = ttk.LabelFrame(self.root, text="Select Option Type", padding=(10, 10))
         top_frame.pack(fill="x", padx=15, pady=10)
-        
+
         self.option_type_var = tk.StringVar()
         self.option_combo = ttk.Combobox(top_frame, textvariable=self.option_type_var, state="readonly")
         self.option_combo['values'] = list(self.param_map.keys())
@@ -52,17 +52,17 @@ class OptionPricerGUI:
         # 2. 中部：动态参数输入区
         self.input_frame = ttk.LabelFrame(self.root, text="Input Parameters", padding=(10, 10))
         self.input_frame.pack(fill="both", expand=True, padx=15, pady=5)
-        
+
         # 初始化加载默认期权的输入框
         self.on_option_change()
 
         # 3. 底部：计算按钮与结果展示区
         bottom_frame = ttk.Frame(self.root, padding=(10, 10))
         bottom_frame.pack(fill="x", padx=15, pady=10)
-        
+
         self.calc_btn = ttk.Button(bottom_frame, text="Calculate Price", command=self.calculate)
         self.calc_btn.pack(pady=5)
-        
+
         self.result_text = tk.Text(bottom_frame, height=8, state="disabled", bg="#f0f0f0")
         self.result_text.pack(fill="x", pady=5)
 
@@ -72,14 +72,14 @@ class OptionPricerGUI:
         for widget in self.input_frame.winfo_children():
             widget.destroy()
         self.entries.clear()
-        
+
         selected_option = self.option_type_var.get()
         params = self.param_map[selected_option]
-        
+
         # 动态生成新的标签和输入框
         for i, param in enumerate(params):
             ttk.Label(self.input_frame, text=param + ":").grid(row=i, column=0, padx=10, pady=5, sticky="w")
-            
+
             # 针对特定参数使用下拉框而不是文本框
             if param == "Option Type":
                 var = tk.StringVar(value="Call")
@@ -100,22 +100,22 @@ class OptionPricerGUI:
         """收集数据并调用对应的后端算法"""
         selected_option = self.option_type_var.get()
         input_data = {}
-        
+
         try:
             # 1. 数据收集与基础类型转换
             for param, entry in self.entries.items():
                 val = entry.get()
                 if not val:
                     raise ValueError(f"Parameter '{param}' cannot be empty.")
-                
+
                 if param in ["Option Type", "CV Method"]:
                     input_data[param] = val
                 else:
                     input_data[param] = float(val)
-            
+
             # 2. 准备输出文本
             result_text_output = f"--- {selected_option} Results ---\n\n"
-            
+
             # 3. 后端路由：根据选择的期权类型调用不同的算法
             if selected_option == "Geometric Basket":
                 price = calc_geometric_basket_closed_form(
@@ -209,7 +209,7 @@ class OptionPricerGUI:
 
             # 4. 在界面上展示结果
             self.display_result(result_text_output)
-            
+
         except ValueError as ve:
             messagebox.showerror("Input Error", f"Invalid input: {str(ve)}")
         except Exception as e:

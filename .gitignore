@@ -21,6 +21,3 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-
-# Report draft (member-specific, not for repo)
-# docs/report_member_B.md

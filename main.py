@@ -9,7 +9,7 @@ def main():
     style = ttk.Style()
     if 'clam' in style.theme_names():
         style.theme_use('clam')
-        
+
     app = OptionPricerGUI(root)
     root.mainloop()
 
