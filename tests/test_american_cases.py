@@ -5,8 +5,8 @@ Test cases from assignment3.pdf for American Options.
 """
 import sys
 sys.path.insert(0, '.')
-from advanced_pricer import american_binomial_price
-from analytic_pricer import geometric_asian_price
+from advanced_pricer import calc_american_binomial
+from analytic_pricer import calc_geometric_asian_closed_form
 
 AMERICAN_CASES = [
     (100, 100, 0.25, 0.05, 0.3, 'call', 'σ=0.3, K=100, Call'),
@@ -17,11 +17,10 @@ def test_american_convergence():
     """Verify American price >= European price (put), and tree converges."""
     results = []
     for S, K, T, r, sigma, opt_type, desc in AMERICAN_CASES:
-        american = american_binomial_price(S, K, T, r, sigma, opt_type, N=200)
-        european = geometric_asian_price(S, K, T, r, sigma, opt_type)
+        american = calc_american_binomial(S0=S, sigma=sigma, r=r, T=T, K=K, n_steps=200, option_type=opt_type)
+        european = calc_geometric_asian_closed_form(S0=S, sigma=sigma, r=r, T=T, K=K, n_obs=52, option_type=opt_type)
         print(f"{desc}: American={american:.4f}, European(geo)={european:.4f}, Diff={american - european:.4f}")
         if opt_type == 'put':
-            # American put >= European put (early exercise premium)
             assert american >= european * 0.95, f"American put {american} should be >= European {european}"
         results.append({'desc': desc, 'american': american, 'european': european})
     return results

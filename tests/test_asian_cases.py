@@ -10,8 +10,8 @@ the task guidance ("reasonable bounds around these values").
 """
 import sys
 sys.path.insert(0, '.')
-from analytic_pricer import geometric_asian_price
-from mc_pricer import arithmetic_asian_price
+from analytic_pricer import calc_geometric_asian_closed_form
+from mc_pricer import calc_arithmetic_asian_mc
 
 # Test case parameters (from assignment3.pdf)
 # S=100, T=3/12=0.25, r=0.05
@@ -30,21 +30,20 @@ def test_all_asian_cases():
     """
     Run all 6 Asian test cases with reasonable bounds.
 
-    Per task guidance: "test assertions should be based on reasonable bounds
-    around these values, not incorrect ranges." The continuous-monitoring geo
-    formula and discrete-step MC geo average differ slightly; use abs bounds.
-
-    - K=50 put: geo_price ~ 0 (deep ITM, geo avg rarely < K), CV -> NaN.
-                 Verify NaN is handled gracefully.
+    - K=50 put: geo ~ 0 (deep ITM), CV -> NaN (degenerate). Verify gracefully.
     - All others: check arith > 0, CI width < 1.0, |arith - geo| < 2.0
     """
     import math
     for S, K, T, r, sigma, opt_type, desc in ASIAN_CASES:
-        geo = geometric_asian_price(S, K, T, r, sigma, opt_type)
-        arith, lo, hi = arithmetic_asian_price(
-            S, K, T, r, sigma, opt_type,
-            n_paths=100000, seed=42
+        geo = calc_geometric_asian_closed_form(S0=S, sigma=sigma, r=r, T=T, K=K, n_obs=52, option_type=opt_type)
+        res = calc_arithmetic_asian_mc(
+            S0=S, sigma=sigma, r=r, T=T, K=K,
+            n_obs=52, option_type=opt_type,
+            m_paths=100000, use_cv=True
         )
+        arith = res["Price"]
+        lo = res["CI_Lower"]
+        hi = res["CI_Upper"]
         ci_width = hi - lo
 
         if K == 50 and opt_type == 'put':
@@ -53,7 +52,6 @@ def test_all_asian_cases():
             assert is_nan, f"{desc}: expected NaN for deep ITM put, got arith={arith}"
             print(f"{desc}: Geometric={geo:.4f}, Arithmetic=NaN (degenerate) [expected NaN]")
         else:
-            # Positive price, tight CI, and geo vs arith within reasonable bounds
             assert arith > 0, f"{desc}: arith {arith} not positive"
             assert ci_width < 1.0, f"{desc}: CI width {ci_width:.4f} too large"
             assert abs(arith - geo) < 2.0, \
@@ -64,8 +62,10 @@ def test_all_asian_cases():
 
 def test_cv_reduces_variance():
     """Verify CV produces a tight CI with 100k paths (variance reduction)."""
-    S, K, T, r, sigma, opt_type = 100, 100, 0.25, 0.05, 0.3, 'call'
-    arith, lo, hi = arithmetic_asian_price(S, K, T, r, sigma, opt_type, n_paths=100000, seed=42)
-    ci_width = hi - lo
+    res = calc_arithmetic_asian_mc(
+        S0=100, sigma=0.3, r=0.05, T=0.25, K=100,
+        n_obs=52, option_type='call', m_paths=100000, use_cv=True
+    )
+    ci_width = res["CI_Upper"] - res["CI_Lower"]
     assert ci_width < 0.5, f"CI width {ci_width:.4f} too large"
     print(f"CI width with CV: {ci_width:.4f}")
