@@ -1,6 +1,7 @@
 # math_utils.py
 import numpy as np
 from scipy.stats import norm
+import math
 
 def normal_cdf(x):
     """Cumulative distribution function of standard normal."""

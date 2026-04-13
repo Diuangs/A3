@@ -59,6 +59,7 @@ def calc_european_bs(S0, sigma, r, q, T, K, option_type):
     Returns:
         price: float
     """
+    option_type = str(option_type).lower()
     d1, d2 = bs_d1_d2(S0, sigma, r, q, T, K)
     disc = np.exp(-r * T)
     if option_type == 'call':
@@ -135,16 +136,36 @@ def calc_geometric_asian_closed_form(S0, sigma, r, T, K, n_obs, option_type):
     Returns:
         price: float
     """
-    vol_G = sigma / np.sqrt(3)
-    mu_G = r - sigma**2 / 6
+    option_type = str(option_type).lower()
+    n_obs = int(n_obs)
 
-    d1 = (np.log(S0 / K) + (mu_G + 0.5 * vol_G**2) * T) / (vol_G * np.sqrt(T))
-    d2 = d1 - vol_G * np.sqrt(T)
+    if n_obs <= 0:
+        raise ValueError("n_obs must be a positive integer")
+    if option_type not in {'call', 'put'}:
+        raise ValueError("option_type must be 'call' or 'put'")
+
+    # Discrete monitoring at t_i = iT/n, i=1..n.
+    mean_log_G = (
+        np.log(S0)
+        + (r - 0.5 * sigma**2) * T * (n_obs + 1) / (2 * n_obs)
+    )
+    var_log_G = (
+        sigma**2 * T * (n_obs + 1) * (2 * n_obs + 1) / (6 * n_obs**2)
+    )
+
+    if var_log_G <= 0:
+        deterministic_G = np.exp(mean_log_G)
+        payoff = max(deterministic_G - K, 0.0) if option_type == 'call' else max(K - deterministic_G, 0.0)
+        return float(np.exp(-r * T) * payoff)
+
+    std_log_G = np.sqrt(var_log_G)
+    d1 = (mean_log_G - np.log(K) + var_log_G) / std_log_G
+    d2 = d1 - std_log_G
     discount = np.exp(-r * T)
-    forward_adj = S0 * np.exp(mu_G * T)
+    expected_G = np.exp(mean_log_G + 0.5 * var_log_G)
 
     if option_type == 'call':
-        price = discount * (forward_adj * norm.cdf(d1) - K * norm.cdf(d2))
+        price = discount * (expected_G * norm.cdf(d1) - K * norm.cdf(d2))
     else:
-        price = discount * (K * norm.cdf(-d2) - forward_adj * norm.cdf(-d1))
+        price = discount * (K * norm.cdf(-d2) - expected_G * norm.cdf(-d1))
     return float(price)

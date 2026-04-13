@@ -194,7 +194,7 @@ class OptionPricerGUI:
 
             elif selected_option == "KIKO Put Option":
                 res = calc_kiko_put_qmc(
-                    S0=input_data["S(0)"],  # 修改了这里：由 "S0" 改为 "S(0)"
+                    S0=input_data["S(0)"], 
                     sigma=input_data["sigma"], 
                     r=input_data["r"], 
                     T=input_data["T"],
@@ -203,9 +203,11 @@ class OptionPricerGUI:
                     U=input_data["U (Upper)"], 
                     n_obs=input_data["n (Obs)"],
                     R=input_data["R (Rebate)"]
-                    # 删除了 m_paths=input_data["MC Paths"]，因为后端函数默认自带 100000
                 )
+                
                 result_text_output += f"QMC Price: {res['Price']:.6f}\n"
+                result_text_output += f"95% Conf. Interval: [{res['CI_Lower']:.6f}, {res['CI_Upper']:.6f}]\n"
+                result_text_output += f"Standard Error: {res['StdErr']:.6f}\n"
                 result_text_output += f"Delta: {res['Delta']:.6f}\n"
 
             else:

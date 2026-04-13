@@ -87,6 +87,7 @@ def calc_arithmetic_asian_mc(S0, sigma, r, T, K, n_obs, option_type, m_paths, us
     Returns:
         dict with keys: Price, CI_Lower, CI_Upper, StdError
     """
+    option_type = str(option_type).lower()
     rng = np.random.default_rng(42)
     n_steps = max(1, n_obs)
 
@@ -109,17 +110,19 @@ def calc_arithmetic_asian_mc(S0, sigma, r, T, K, n_obs, option_type, m_paths, us
         arith_payoff = np.maximum(K - arith_avg, 0.0)
         geo_payoff = np.maximum(K - geo_avg, 0.0)
 
+    discount = np.exp(-r * T)
+    discounted_arith = discount * arith_payoff
+    discounted_geo = discount * geo_payoff
+
     if use_cv:
-        beta = np.cov(arith_payoff, geo_payoff, ddof=1)[0, 1] / np.var(geo_payoff, ddof=1)
+        beta = np.cov(discounted_arith, discounted_geo, ddof=1)[0, 1] / np.var(discounted_geo, ddof=1)
         geo_price = calc_geometric_asian_closed_form(S0=S0, sigma=sigma, r=r, T=T, K=K, n_obs=n_obs, option_type=option_type)
-        adjusted_payoff = arith_payoff - beta * (geo_payoff - geo_price)
+        adjusted_discounted = discounted_arith - beta * (discounted_geo - geo_price)
     else:
-        adjusted_payoff = arith_payoff
+        adjusted_discounted = discounted_arith
 
-    discounted = np.exp(-r * T) * adjusted_payoff
-
-    price_estimate = float(np.mean(discounted))
-    std_err = float(np.std(discounted, ddof=1) / np.sqrt(len(discounted)))
+    price_estimate = float(np.mean(adjusted_discounted))
+    std_err = float(np.std(adjusted_discounted, ddof=1) / np.sqrt(len(adjusted_discounted)))
     ci_lower = price_estimate - 1.96 * std_err
     ci_upper = price_estimate + 1.96 * std_err
 
