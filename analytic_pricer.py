@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from scipy.stats import norm
+from math_utils import normal_cdf, normal_pdf, discount_factor, bs_d1_d2
 
 def calc_geometric_basket_closed_form(S1, S2, sigma1, sigma2, r, T, K, rho, option_type):
     """
@@ -58,8 +59,7 @@ def calc_european_bs(S0, sigma, r, q, T, K, option_type):
     Returns:
         price: float
     """
-    d1 = (np.log(S0 / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
+    d1, d2 = bs_d1_d2(S0, sigma, r, q, T, K)
     disc = np.exp(-r * T)
     if option_type == 'call':
         price = disc * (S0 * np.exp((r - q) * T) * norm.cdf(d1) - K * norm.cdf(d2))
@@ -81,24 +81,43 @@ def calc_implied_vol(S0, r, q, T, K, premium, option_type, tol=1e-6, max_iter=10
     Returns:
         sigma: implied volatility (float)
     """
-    sigma = 0.30  # initial guess
-    for _ in range(max_iter):
-        d1 = (np.log(S0 / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-        d2 = d1 - sigma * np.sqrt(T)
-        disc = np.exp(-r * T)
-        if option_type == 'call':
-            price = disc * (S0 * np.exp((r - q) * T) * norm.cdf(d1) - K * norm.cdf(d2))
-        else:
-            price = disc * (K * norm.cdf(-d2) - S0 * np.exp((r - q) * T) * norm.cdf(-d1))
-        vega = disc * S0 * np.exp((r - q) * T) * norm.pdf(d1) * np.sqrt(T)
-        if vega < 1e-10:
-            break
-        diff = premium - price
-        if abs(diff) < tol:
-            return float(sigma)
-        sigma = sigma + diff / vega
-    return float(sigma)
+    # sigma = 0.30  # initial guess
+    # for _ in range(max_iter):
+    #     d1 = (np.log(S0 / K) + (r - q + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    #     d2 = d1 - sigma * np.sqrt(T)
+    #     disc = np.exp(-r * T)
+    #     if option_type == 'call':
+    #         price = disc * (S0 * np.exp((r - q) * T) * norm.cdf(d1) - K * norm.cdf(d2))
+    #     else:
+    #         price = disc * (K * norm.cdf(-d2) - S0 * np.exp((r - q) * T) * norm.cdf(-d1))
+    #     vega = disc * S0 * np.exp((r - q) * T) * norm.pdf(d1) * np.sqrt(T)
+    #     if vega < 1e-10:
+    #         break
+    #     diff = premium - price
+    #     if abs(diff) < tol:
+    #         return float(sigma)
+    #     sigma = sigma + diff / vega
+    # return float(sigma)
 
+    low_sigma = 1e-6
+    high_sigma = 5.0
+
+    low_price = calc_european_bs(S0, low_sigma, r, q, T, K, option_type)
+    high_price = calc_european_bs(S0, high_sigma, r, q, T, K, option_type)
+
+    for _ in range(max_iter):
+        mid_sigma = 0.5 * (low_sigma + high_sigma)
+        mid_price = calc_european_bs(S0, mid_sigma, r, q, T, K, option_type)
+
+        if abs(mid_price - premium) < tol:
+            return mid_sigma
+
+        if mid_price < premium:
+            low_sigma = mid_sigma
+        else:
+            high_sigma = mid_sigma
+
+    return 0.5 * (low_sigma + high_sigma)
 
 def calc_geometric_asian_closed_form(S0, sigma, r, T, K, n_obs, option_type):
     """
