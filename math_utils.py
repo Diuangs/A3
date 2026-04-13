@@ -26,3 +26,14 @@ def sample_std(arr):
 def covariance(arr1, arr2):
     """Sample covariance between two arrays."""
     return np.cov(arr1, arr2, ddof=1)[0, 1]
+    
+def normal_pdf(x):
+    return math.exp(-0.5 * x * x) / math.sqrt(2.0 * math.pi)
+
+def discount_factor(r, T):
+    return math.exp(-r * T)
+
+def bs_d1_d2(S0, sigma, r, q, T, K):
+    d1 = (math.log(S0 / K) + (r - q + 0.5 * sigma * sigma) * T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+    return d1, d2
