@@ -13,7 +13,7 @@ from mc_pricer import (
 )
 from advanced_pricer import (
     calc_american_binomial,
-    calc_kiko_qmc,
+    calc_kiko_put_qmc,
 )
 
 class OptionPricerGUI:
